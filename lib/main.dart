@@ -1,31 +1,27 @@
+import 'dart:developer';
 import 'dart:async';
-import 'dart:math';
+import 'dart:math' as math;
 import 'dart:core';
 
-import 'package:flutter/widgets.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/animation.dart';
-import 'package:flutter/rendering.dart';
 
 import 'package:mic_stream/mic_stream.dart';
 import 'package:fft/fft.dart';
 
-enum Command {
-  start,
-  stop,
-  change,
-}
+enum Command { start, stop, change }
 
-const AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT;
+const audioFormat = AudioFormat.ENCODING_PCM_16BIT;
 
-void main() => runApp(MicStreamExampleApp());
+void main() => runApp(const MicStreamExampleApp());
 
 class MicStreamExampleApp extends StatefulWidget {
+  const MicStreamExampleApp({Key? key}) : super(key: key);
+
   @override
-  _MicStreamExampleAppState createState() => _MicStreamExampleAppState();
+  MicStreamExampleAppState createState() => MicStreamExampleAppState();
 }
 
-class _MicStreamExampleAppState extends State<MicStreamExampleApp>
+class MicStreamExampleAppState extends State<MicStreamExampleApp>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   Stream? stream;
   late StreamSubscription listener;
@@ -34,12 +30,12 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
   int? localMax;
   int? localMin;
 
-  Random rng = new Random();
+  final rng = math.Random();
 
   // Refreshes the Widget for every possible tick to force a rebuild of the sound wave
   late AnimationController controller;
 
-  Color _iconColor = Colors.white;
+  final _iconColor = Colors.white;
   bool isRecording = false;
   bool memRecordingState = false;
   late bool isActive;
@@ -50,9 +46,9 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
 
   @override
   void initState() {
-    print("Init application");
+    log("Init application");
     super.initState();
-    WidgetsBinding.instance!.addObserver(this);
+    WidgetsBinding.instance.addObserver(this);
     setState(() {
       initPlatformState();
     });
@@ -61,7 +57,7 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
   void _controlPage(int index) => setState(() => page = index);
 
   // Responsible for switching between recording / idle state
-  void _controlMicStream({Command command: Command.change}) async {
+  void _controlMicStream({Command command = Command.change}) async {
     switch (command) {
       case Command.change:
         _changeListening();
@@ -81,12 +77,12 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
   late int samplesPerSecond;
 
   Future<bool> _startListening() async {
-    print("START LISTENING");
+    log("START LISTENING");
     if (isRecording) return false;
     // if this is the first time invoking the microphone()
     // method to get the stream, we don't yet have access
     // to the sampleRate and bitDepth properties
-    print("wait for stream");
+    log("wait for stream");
 
     // Default option. Set to false to disable request permission dialogue
     MicStream.shouldRequestPermission(true);
@@ -95,11 +91,10 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
         audioSource: AudioSource.DEFAULT,
         sampleRate: 1000 * (rng.nextInt(50) + 30),
         channelConfig: ChannelConfig.CHANNEL_IN_MONO,
-        audioFormat: AUDIO_FORMAT);
+        audioFormat: audioFormat);
     // after invoking the method for the first time, though, these will be available;
     // It is not necessary to setup a listener first, the stream only needs to be returned first
-    print(
-        "Start Listening to the microphone, sample rate is ${await MicStream.sampleRate}, bit depth is ${await MicStream.bitDepth}, bufferSize: ${await MicStream.bufferSize}");
+    log("Start Listening to the microphone, sample rate is ${await MicStream.sampleRate}, bit depth is ${await MicStream.bitDepth}, bufferSize: ${await MicStream.bufferSize}");
     bytesPerSample = (await MicStream.bitDepth)! ~/ 8;
     samplesPerSecond = (await MicStream.sampleRate)!.toInt();
     localMax = null;
@@ -115,9 +110,11 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
   }
 
   void _calculateSamples(samples) {
-    if (page == 0)
+    if (page == 0) {
       _calculateWaveSamples(samples);
-    else if (page == 1) _calculateIntensitySamples(samples);
+    } else if (page == 1) {
+      _calculateIntensitySamples(samples);
+    }
   }
 
   void _calculateWaveSamples(samples) {
@@ -134,14 +131,14 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
 
         localMax ??= visibleSamples.last;
         localMin ??= visibleSamples.last;
-        localMax = max(localMax!, visibleSamples.last);
-        localMin = min(localMin!, visibleSamples.last);
+        localMax = math.max(localMax!, visibleSamples.last);
+        localMin = math.min(localMin!, visibleSamples.last);
 
         tmp = 0;
       }
       first = !first;
     }
-    print(visibleSamples);
+    log(visibleSamples.toString());
   }
 
   void _calculateIntensitySamples(samples) {
@@ -159,8 +156,8 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
       visibleSamples.add(currentSamples!.map((i) => i).toList().reduce((a, b) => a + b));
       localMax ??= visibleSamples.last;
       localMin ??= visibleSamples.last;
-      localMax = max(localMax!, visibleSamples.last);
-      localMin = min(localMin!, visibleSamples.last);
+      localMax = math.max(localMax!, visibleSamples.last);
+      localMin = math.min(localMin!, visibleSamples.last);
       currentSamples = [];
       setState(() {});
     }
@@ -168,7 +165,7 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
 
   bool _stopListening() {
     if (!isRecording) return false;
-    print("Stop Listening to the microphone");
+    log("Stop Listening to the microphone");
     listener.cancel();
 
     setState(() {
@@ -184,22 +181,22 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
     if (!mounted) return;
     isActive = true;
 
-    Statistics(false);
-
-    controller = AnimationController(duration: Duration(seconds: 1), vsync: this)
+    controller = AnimationController(duration: const Duration(seconds: 1), vsync: this)
       ..addListener(() {
         if (isRecording) setState(() {});
       })
       ..addStatusListener((status) {
-        if (status == AnimationStatus.completed)
+        if (status == AnimationStatus.completed) {
           controller.reverse();
-        else if (status == AnimationStatus.dismissed) controller.forward();
+        } else if (status == AnimationStatus.dismissed) {
+          controller.forward();
+        }
       })
       ..forward();
   }
 
   Color _getBgColor() => (isRecording) ? Colors.red : Colors.cyan;
-  Icon _getIcon() => (isRecording) ? Icon(Icons.stop) : Icon(Icons.keyboard_voice);
+  Icon _getIcon() => (isRecording) ? const Icon(Icons.stop) : const Icon(Icons.keyboard_voice);
 
   @override
   Widget build(BuildContext context) {
@@ -211,13 +208,13 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
           ),
           floatingActionButton: FloatingActionButton(
             onPressed: _controlMicStream,
-            child: _getIcon(),
             foregroundColor: _iconColor,
             backgroundColor: _getBgColor(),
             tooltip: (isRecording) ? "Stop recording" : "Start recording",
+            child: _getIcon(),
           ),
           bottomNavigationBar: BottomNavigationBar(
-            items: [
+            items: const [
               BottomNavigationBarItem(
                 icon: Icon(Icons.broken_image),
                 label: "Sound Wave",
@@ -257,14 +254,14 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       isActive = true;
-      print("Resume app");
+      log("Resume app");
 
       _controlMicStream(command: memRecordingState ? Command.start : Command.stop);
     } else if (isActive) {
       memRecordingState = isRecording;
       _controlMicStream(command: Command.stop);
 
-      print("Pause app");
+      log("Pause app");
       isActive = false;
     }
   }
@@ -273,7 +270,7 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
   void dispose() {
     listener.cancel();
     controller.dispose();
-    WidgetsBinding.instance!.removeObserver(this);
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 }
@@ -298,36 +295,36 @@ class WavePainter extends CustomPainter {
     this.size = context!.size;
     size = this.size;
 
-    Paint paint = new Paint()
+    final paint = Paint()
       ..color = color!
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
 
-    if (samples!.length == 0) return;
+    if (samples?.isEmpty ?? true) return;
 
-    int initialPowerOfTwo =  (log(samples!.length)*log2e).ceil();
-    int samplesFinalLength = pow(2,initialPowerOfTwo).toInt();
-    final padding = List<double>.filled(samplesFinalLength -(samples!.length), 0);
+    int initialPowerOfTwo = (math.log(samples!.length) * math.log2e).ceil();
+    int samplesFinalLength = math.pow(2, initialPowerOfTwo).toInt();
+    final padding = List<double>.filled(samplesFinalLength - (samples!.length), 0);
     final fftSamples = FFT().Transform([...samples!.map((e) => e.toDouble()).toList(), ...padding]);
-    points =  toPoints(fftSamples.map((e) => e!.abs().toInt()).toList());
+    points = toPoints(fftSamples.map((e) => e!.abs().toInt()).toList());
 
-    Path path = new Path();
-    path.addPolygon(points, false);
+    final path = Path() //
+      ..addPolygon(points, false);
 
     canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(CustomPainter oldPainting) => true;
+  bool shouldRepaint(CustomPainter oldDelegate) => true;
 
   // Maps a list of ints and their indices to a list of points on a cartesian grid
   List<Offset> toPoints(List<int>? samples) {
     List<Offset> points = [];
-    if (samples == null) samples = List<int>.filled(size!.width.toInt(), (0.5).toInt());
+    samples ??= List<int>.filled(size!.width.toInt(), (0.5).toInt());
     double pixelsPerSample = size!.width / samples.length;
     for (int i = 0; i < samples.length; i++) {
-      var point =
-          Offset(i * pixelsPerSample, 0.5 * size!.height * pow((samples[i] - localMin!) / (localMax! - localMin!), 5));
+      var point = Offset(
+          i * pixelsPerSample, 0.5 * size!.height * math.pow((samples[i] - localMin!) / (localMax! - localMin!), 5));
       points.add(point);
     }
     return points;
@@ -345,20 +342,27 @@ class Statistics extends StatelessWidget {
 
   final String url = "https://github.com/anarchuser/mic_stream";
 
-  Statistics(this.isRecording, {this.startTime});
+  const Statistics(
+    this.isRecording, {
+    this.startTime,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return ListView(children: <Widget>[
-      ListTile(leading: Icon(Icons.title), title: Text("Microphone Streaming Example App")),
-      ListTile(
-        leading: Icon(Icons.keyboard_voice),
-        title: Text((isRecording ? "Recording" : "Not recording")),
-      ),
-      ListTile(
-          leading: Icon(Icons.access_time),
-          title: Text((isRecording ? DateTime.now().difference(startTime!).toString() : "Not recording"))),
-    ]);
+    return ListView(
+      children: <Widget>[
+        const ListTile(leading: Icon(Icons.title), title: Text("Microphone Streaming Example App")),
+        ListTile(
+          leading: const Icon(Icons.keyboard_voice),
+          title: Text((isRecording ? "Recording" : "Not recording")),
+        ),
+        ListTile(
+          leading: const Icon(Icons.access_time),
+          title: Text((isRecording ? DateTime.now().difference(startTime!).toString() : "Not recording")),
+        ),
+      ],
+    );
   }
 }
 
