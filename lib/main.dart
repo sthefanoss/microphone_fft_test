@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui';
 import 'dart:math' as math;
@@ -33,6 +34,7 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
   List<chart.FlSpot>? _filteredSpots;
   double _maxTimeValue = 1;
   double _maxFFTValue = 1;
+  double _minTimeValue = 0;
   bool memRecordingState = false;
   bool isRecording = false;
   bool isActive = false;
@@ -78,10 +80,11 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
     MicStream.shouldRequestPermission(true);
 
     _stream = await MicStream.microphone(
-        audioSource: AudioSource.DEFAULT,
-        sampleRate: 16000,
-        channelConfig: ChannelConfig.CHANNEL_IN_MONO,
-        audioFormat: AUDIO_FORMAT);
+      audioSource: AudioSource.DEFAULT,
+      sampleRate: 44100,
+      channelConfig: ChannelConfig.CHANNEL_IN_MONO,
+      audioFormat: AudioFormat.ENCODING_PCM_8BIT,
+    );
     // after invoking the method for the first time, though, these will be available;
     // It is not necessary to setup a listener first, the stream only needs to be returned first
     print(
@@ -99,17 +102,46 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
   }
 
   void _micListener(Uint8List f) {
-    // print(f);
-    var dataaa = f.buffer.asUint16List();
+    // ByteData byteData = ByteData.sublistView(f);
+    //
+    // print({
+    //   'vetor': f.sublist(0, 2),
+    //   'big': byteData.getUint16(0, Endian.big),
+    //   'little': byteData.getUint16(0, Endian.little),
+    // });
+    //
+    // // ByteData byteData = ByteData.sublistView(f);
+    //
+    // final dataaa = List<int>.filled(f.length, 0);
+    //
+    // for (int i = 0; i < f.length ~/ 2; i++) {
+    //   dataaa[i] = byteData.getUint16(i * 2, Endian.little);
+    // }
+    // print(dataaa);
+    final dataaa = _calculateWaveSamples(f);
+    // for (int i = 0; i < f.length ~/ 2; i++) {
+    //   dataaa.add(f[i]);
+    // }
+    // for (int i = 0; i < f.length ~/ 2; i++) {
+    //   dataaa[i] += f[i + f.length ~/ 2 - 1] << 255;
+    // }
+
+    // late List<int> dataaa;
+    //    // print(bytesPerSample);
+    //  if(bytesPerSample ==2 ) {
+    //    dataaa = f.buffer.asUint16List();
+    //  } else {
+    //    dataaa = f.toList();
+    //  }
     // final dataaa = f;
     // print(dataa.toSet().length);
     // return;
     //  print(data.length);
     int initialPowerOfTwo = (math.log(dataaa.length) * math.log2e).ceil();
     int samplesFinalLength = math.pow(2, initialPowerOfTwo - 1).toInt();
-    final offset = 0.0; // math.pow(2, 15.0);
+    final offset = 0.0; //math.pow(2, 7.0).toDouble();
     final dataa = dataaa.sublist(0, samplesFinalLength).map((e) => e - offset).toList();
-    print(dataa.length);
+    // print(dataa.length);
     // final window = List<double>.generate(
     //     dataa.length,
     //     (index) => math
@@ -149,6 +181,7 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
         // final y = window[x] * dataa[x];
         final y = dataa[x];
         _maxTimeValue = math.max(y, _maxTimeValue);
+        _minTimeValue = math.min(y, _minTimeValue);
         return chart.FlSpot(x.toDouble(), y);
       },
     );
@@ -205,6 +238,28 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
         _fftSpots = boo;
       });
     }
+  }
+
+  List<int> _calculateWaveSamples(Uint8List samples) {
+    if (bytesPerSample == 1)
+      return samples.toList().map((element) {
+        return element - 127;
+      }).toList();
+    bool first = true;
+    final visibleSamples = <int>[];
+    int tmp = 0;
+    for (int sample in samples) {
+      if (sample > 128) sample -= 255;
+      if (first) {
+        tmp = sample * 128;
+      } else {
+        tmp += sample;
+        visibleSamples.add(tmp);
+        tmp = 0;
+      }
+      first = !first;
+    }
+    return visibleSamples;
   }
 
   bool _stopListening() {
@@ -267,7 +322,7 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
                         ),
                       ],
                       maxY: _maxTimeValue,
-                      minY: -_maxTimeValue,
+                      minY: _minTimeValue,
                     ),
                   )
                 : Container(),
