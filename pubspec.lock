@@ -50,13 +50,13 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "0.7.2"
-  cupertino_icons:
-    dependency: "direct main"
+  equatable:
+    dependency: transitive
     description:
-      name: cupertino_icons
+      name: equatable
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "1.0.5"
+    version: "2.0.3"
   fake_async:
     dependency: transitive
     description:
@@ -73,6 +73,13 @@ packages:
       url: "https://github.com/Yi-Jiahe/dart_lang_fft"
     source: git
     version: "0.3.0"
+  fl_chart:
+    dependency: "direct main"
+    description:
+      name: fl_chart
+      url: "https://pub.dartlang.org"
+    source: hosted
+    version: "0.55.0"
   flutter:
     dependency: "direct main"
     description: flutter

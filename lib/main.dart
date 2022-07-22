@@ -1,60 +1,50 @@
-import 'dart:developer';
 import 'dart:async';
+import 'dart:developer';
+import 'dart:typed_data';
+import 'dart:ui';
 import 'dart:math' as math;
-import 'dart:core';
-
-import 'package:flutter/material.dart';
-
-import 'package:mic_stream/mic_stream.dart';
 import 'package:fft/fft.dart';
+import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart' as chart;
+import 'package:mic_stream/mic_stream.dart';
 
-enum Command { start, stop, change }
-
-const audioFormat = AudioFormat.ENCODING_PCM_16BIT;
-
-void main() => runApp(const MicStreamExampleApp());
-
-class MicStreamExampleApp extends StatefulWidget {
-  const MicStreamExampleApp({Key? key}) : super(key: key);
-
-  @override
-  MicStreamExampleAppState createState() => MicStreamExampleAppState();
+enum Command {
+  start,
+  stop,
+  change,
 }
 
-class MicStreamExampleAppState extends State<MicStreamExampleApp>
+const AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT;
+
+void main() => runApp(MicStreamExampleApp());
+
+class MicStreamExampleApp extends StatefulWidget {
+  @override
+  _MicStreamExampleAppState createState() => _MicStreamExampleAppState();
+}
+
+class _MicStreamExampleAppState extends State<MicStreamExampleApp>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
-  Stream? stream;
-  late StreamSubscription listener;
-  List<int>? currentSamples = [];
-  List<int> visibleSamples = [];
-  int? localMax;
-  int? localMin;
-
-  final rng = math.Random();
-
-  // Refreshes the Widget for every possible tick to force a rebuild of the sound wave
-  late AnimationController controller;
-
-  final _iconColor = Colors.white;
-  bool isRecording = false;
-  bool memRecordingState = false;
-  late bool isActive;
-  DateTime? startTime;
-
+  Stream<Uint8List>? _stream;
   int page = 0;
-  List state = ["SoundWavePage", "IntensityWavePage", "InformationPage"];
-
+  StreamSubscription<Uint8List>? _soundSubscription;
+  List<chart.FlSpot>? _spots;
+  List<chart.FlSpot>? _fftSpots;
+  List<chart.FlSpot>? _filteredSpots;
+  double _maxTimeValue = 1;
+  double _maxFFTValue = 1;
+  bool memRecordingState = false;
+  bool isRecording = false;
+  bool isActive = false;
   @override
   void initState() {
-    log("Init application");
+    print("Init application");
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     setState(() {
       initPlatformState();
     });
   }
-
-  void _controlPage(int index) => setState(() => page = index);
 
   // Responsible for switching between recording / idle state
   void _controlMicStream({Command command = Command.change}) async {
@@ -77,101 +67,153 @@ class MicStreamExampleAppState extends State<MicStreamExampleApp>
   late int samplesPerSecond;
 
   Future<bool> _startListening() async {
-    log("START LISTENING");
+    print("START LISTENING");
     if (isRecording) return false;
     // if this is the first time invoking the microphone()
     // method to get the stream, we don't yet have access
     // to the sampleRate and bitDepth properties
-    log("wait for stream");
+    print("wait for stream");
 
     // Default option. Set to false to disable request permission dialogue
     MicStream.shouldRequestPermission(true);
 
-    stream = await MicStream.microphone(
+    _stream = await MicStream.microphone(
         audioSource: AudioSource.DEFAULT,
-        sampleRate: 1000 * (rng.nextInt(50) + 30),
+        sampleRate: 16000,
         channelConfig: ChannelConfig.CHANNEL_IN_MONO,
-        audioFormat: audioFormat);
+        audioFormat: AUDIO_FORMAT);
     // after invoking the method for the first time, though, these will be available;
     // It is not necessary to setup a listener first, the stream only needs to be returned first
-    log("Start Listening to the microphone, sample rate is ${await MicStream.sampleRate}, bit depth is ${await MicStream.bitDepth}, bufferSize: ${await MicStream.bufferSize}");
+    print(
+        "Start Listening to the microphone, sample rate is ${await MicStream.sampleRate}, bit depth is ${await MicStream.bitDepth}, bufferSize: ${await MicStream.bufferSize}");
     bytesPerSample = (await MicStream.bitDepth)! ~/ 8;
     samplesPerSecond = (await MicStream.sampleRate)!.toInt();
-    localMax = null;
-    localMin = null;
+    _maxFFTValue = 1;
+    _maxTimeValue = 1;
 
     setState(() {
       isRecording = true;
-      startTime = DateTime.now();
     });
-    visibleSamples = [];
-    listener = stream!.listen(_calculateSamples);
+    _soundSubscription = _stream!.listen(_micListener);
     return true;
   }
 
-  void _calculateSamples(samples) {
-    if (page == 0) {
-      _calculateWaveSamples(samples);
-    } else if (page == 1) {
-      _calculateIntensitySamples(samples);
+  void _micListener(Uint8List f) {
+    // print(f);
+    var dataaa = f.buffer.asUint16List();
+    // final dataaa = f;
+    // print(dataa.toSet().length);
+    // return;
+    //  print(data.length);
+    int initialPowerOfTwo = (math.log(dataaa.length) * math.log2e).ceil();
+    int samplesFinalLength = math.pow(2, initialPowerOfTwo - 1).toInt();
+    final offset = 0.0; // math.pow(2, 15.0);
+    final dataa = dataaa.sublist(0, samplesFinalLength).map((e) => e - offset).toList();
+    print(dataa.length);
+    // final window = List<double>.generate(
+    //     dataa.length,
+    //     (index) => math
+    //         .exp(-40 * math.pow((index - dataa.length / 2) / dataa.length, 4)));
+    // print(window);
+    // var buffer = data.buffer;
+    // var bytes = new ByteData.view(buffer);
+    // final datas = <double>[];
+    // for (int i = 0; i < data.length ~/ 2; i++) {
+    //   datas.add(bytes.getUint16(2 * i) - offset);
+    // }
+    //   bytes.getUint16(byteOffset);
+
+// print(boo.toSet().length);
+    // print(data.toSet().length);
+
+    // return;
+    // print(data.toSet());
+    // final _before = _now;
+    // _now = DateTime.now();
+    // print(data.length);
+
+    // final datas = List<int>.filled(data.length ~/ 2, 0);
+    // for (int i = 0; i < data.length; i += 2) {
+    //   datas[i ~/ 2] = data[i] * 256 + data[i + 1];
+    // }
+    // print(datas.toSet().length);
+    // return;
+    // print(datas);
+
+    // if (_before != null)
+    //   print('dt = ${_now.difference(_before).inMicroseconds}');
+    // print(data.length / _now.difference(_before).inMicroseconds);
+    final foo = List<chart.FlSpot>.generate(
+      dataa.length,
+      (x) {
+        // final y = window[x] * dataa[x];
+        final y = dataa[x];
+        _maxTimeValue = math.max(y, _maxTimeValue);
+        return chart.FlSpot(x.toDouble(), y);
+      },
+    );
+    if (false) {
+      // int initialPowerOfTwo = (math.log(data.length) * math.log2e).ceil();
+      // int samplesFinalLength = math.pow(2, initialPowerOfTwo).toInt();
+      // final padding =
+      //     List<double>.filled(samplesFinalLength - (data.length), 0);
+      // final fftSamples = FFT()
+      //     .Transform([...data.map((e) => e.toDouble()).toList(), ...padding]);
+      // final boo = List<chart.FlSpot>.generate(
+      //   fftSamples.length - 1,
+      //   (x) {
+      //     final y = fftSamples[x + 1].modulus.toDouble();
+      //     _maxFFTValue = math.max(y, _maxFFTValue);
+      //     return chart.FlSpot(x.toDouble(), y);
+      //   },
+      // );
+      // setState(() {
+      //   _spots = foo;
+      //   _fftSpots = boo;
+      // });
     }
-  }
-
-  void _calculateWaveSamples(samples) {
-    bool first = true;
-    visibleSamples = [];
-    int tmp = 0;
-    for (int sample in samples) {
-      if (sample > 128) sample -= 255;
-      if (first) {
-        tmp = sample * 128;
-      } else {
-        tmp += sample;
-        visibleSamples.add(tmp);
-
-        localMax ??= visibleSamples.last;
-        localMin ??= visibleSamples.last;
-        localMax = math.max(localMax!, visibleSamples.last);
-        localMin = math.min(localMin!, visibleSamples.last);
-
-        tmp = 0;
-      }
-      first = !first;
-    }
-    log(visibleSamples.toString());
-  }
-
-  void _calculateIntensitySamples(samples) {
-    currentSamples ??= [];
-    int currentSample = 0;
-    eachWithIndex(samples, (i, int sample) {
-      currentSample += sample;
-      if ((i % bytesPerSample) == bytesPerSample - 1) {
-        currentSamples!.add(currentSample);
-        currentSample = 0;
-      }
-    });
-
-    if (currentSamples!.length >= samplesPerSecond / 10) {
-      visibleSamples.add(currentSamples!.map((i) => i).toList().reduce((a, b) => a + b));
-      localMax ??= visibleSamples.last;
-      localMin ??= visibleSamples.last;
-      localMax = math.max(localMax!, visibleSamples.last);
-      localMin = math.min(localMin!, visibleSamples.last);
-      currentSamples = [];
-      setState(() {});
+    {
+      // int initialPowerOfTwo = (math.log(datas.length) * math.log2e).ceil();
+      // int samplesFinalLength = math.pow(2, initialPowerOfTwo - 1).toInt();
+      final fftSamples = FFT().Transform(dataa);
+      // final maxFreq = (fftSamples.length * 3660 ~/ 4000);
+      // final minFerq = (fftSamples.length * 60 ~/ 4000);
+      // final fftFilter = List<chart.FlSpot>.generate(
+      //   fftSamples.length,
+      //   (x) {
+      //     double y;
+      //     if (x > minFerq && x < maxFreq) {
+      //       y = 1;
+      //     } else {
+      //       y = 0;
+      //     }
+      //     // _maxFFTValue = math.max(y, _maxFFTValue);
+      //     return chart.FlSpot(x.toDouble(), y);
+      //   },
+      // );
+      // print(fftFilter);
+      final boo = List<chart.FlSpot>.generate(
+        fftSamples.length ~/ 2,
+        (x) {
+          double y = fftSamples[x]!.abs();
+          _maxFFTValue = math.max(y, _maxFFTValue);
+          return chart.FlSpot(x.toDouble(), y);
+        },
+      );
+      setState(() {
+        _spots = foo;
+        _fftSpots = boo;
+      });
     }
   }
 
   bool _stopListening() {
     if (!isRecording) return false;
-    log("Stop Listening to the microphone");
-    listener.cancel();
+    print("Stop Listening to the microphone");
+    _soundSubscription?.cancel();
 
     setState(() {
       isRecording = false;
-      currentSamples = null;
-      startTime = null;
     });
     return true;
   }
@@ -180,41 +222,27 @@ class MicStreamExampleAppState extends State<MicStreamExampleApp>
   Future<void> initPlatformState() async {
     if (!mounted) return;
     isActive = true;
-
-    controller = AnimationController(duration: const Duration(seconds: 1), vsync: this)
-      ..addListener(() {
-        if (isRecording) setState(() {});
-      })
-      ..addStatusListener((status) {
-        if (status == AnimationStatus.completed) {
-          controller.reverse();
-        } else if (status == AnimationStatus.dismissed) {
-          controller.forward();
-        }
-      })
-      ..forward();
   }
 
   Color _getBgColor() => (isRecording) ? Colors.red : Colors.cyan;
-  Icon _getIcon() => (isRecording) ? const Icon(Icons.stop) : const Icon(Icons.keyboard_voice);
+  Icon _getIcon() => (isRecording) ? Icon(Icons.stop) : Icon(Icons.keyboard_voice);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      theme: ThemeData.dark(),
-      home: Scaffold(
+        theme: ThemeData.dark(),
+        home: Scaffold(
           appBar: AppBar(
             title: const Text('Plugin: mic_stream :: Debug'),
           ),
           floatingActionButton: FloatingActionButton(
             onPressed: _controlMicStream,
-            foregroundColor: _iconColor,
+            child: _getIcon(),
             backgroundColor: _getBgColor(),
             tooltip: (isRecording) ? "Stop recording" : "Start recording",
-            child: _getIcon(),
           ),
           bottomNavigationBar: BottomNavigationBar(
-            items: const [
+            items: [
               BottomNavigationBarItem(
                 icon: Icon(Icons.broken_image),
                 label: "Sound Wave",
@@ -223,156 +251,64 @@ class MicStreamExampleAppState extends State<MicStreamExampleApp>
                 icon: Icon(Icons.broken_image),
                 label: "Intensity Wave",
               ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.view_list),
-                label: "Statistics",
-              )
             ],
             backgroundColor: Colors.black26,
             elevation: 20,
             currentIndex: page,
-            onTap: _controlPage,
+            onTap: (v) => setState(() => page = v),
           ),
-          body: (page == 0 || page == 1)
-              ? CustomPaint(
-                  painter: WavePainter(
-                    samples: visibleSamples,
-                    color: _getBgColor(),
-                    localMax: localMax,
-                    localMin: localMin,
-                    context: context,
-                  ),
-                )
-              : Statistics(
-                  isRecording,
-                  startTime: startTime,
-                )),
-    );
+          body: [
+            _spots != null
+                ? chart.LineChart(
+                    chart.LineChartData(
+                      lineBarsData: [
+                        chart.LineChartBarData(
+                          spots: _spots,
+                        ),
+                      ],
+                      maxY: _maxTimeValue,
+                      minY: -_maxTimeValue,
+                    ),
+                  )
+                : Container(),
+            _fftSpots != null
+                ? chart.LineChart(
+                    chart.LineChartData(
+                      lineBarsData: [
+                        chart.LineChartBarData(
+                          spots: _fftSpots,
+                        ),
+                      ],
+                      minY: 0,
+                      maxY: _maxFFTValue,
+                    ),
+                  )
+                : Container(),
+          ][page],
+        ));
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       isActive = true;
-      log("Resume app");
+      print("Resume app");
 
       _controlMicStream(command: memRecordingState ? Command.start : Command.stop);
     } else if (isActive) {
       memRecordingState = isRecording;
       _controlMicStream(command: Command.stop);
 
-      log("Pause app");
+      print("Pause app");
       isActive = false;
     }
   }
 
   @override
   void dispose() {
-    listener.cancel();
-    controller.dispose();
+    _soundSubscription?.cancel();
+
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
-}
-
-class WavePainter extends CustomPainter {
-  int? localMax;
-  int? localMin;
-  List<int>? samples;
-  late List<Offset> points;
-  Color? color;
-  BuildContext? context;
-  Size? size;
-
-  // Set max val possible in stream, depending on the config
-  // int absMax = 255*4; //(AUDIO_FORMAT == AudioFormat.ENCODING_PCM_8BIT) ? 127 : 32767;
-  // int absMin; //(AUDIO_FORMAT == AudioFormat.ENCODING_PCM_8BIT) ? 127 : 32767;
-
-  WavePainter({this.samples, this.color, this.context, this.localMax, this.localMin});
-
-  @override
-  void paint(Canvas canvas, Size? size) {
-    this.size = context!.size;
-    size = this.size;
-
-    final paint = Paint()
-      ..color = color!
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
-
-    if (samples?.isEmpty ?? true) return;
-
-    int initialPowerOfTwo = (math.log(samples!.length) * math.log2e).ceil();
-    int samplesFinalLength = math.pow(2, initialPowerOfTwo).toInt();
-    final padding = List<double>.filled(samplesFinalLength - (samples!.length), 0);
-    final fftSamples = FFT().Transform([...samples!.map((e) => e.toDouble()).toList(), ...padding]);
-    points = toPoints(fftSamples.map((e) => e!.abs().toInt()).toList());
-
-    final path = Path() //
-      ..addPolygon(points, false);
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => true;
-
-  // Maps a list of ints and their indices to a list of points on a cartesian grid
-  List<Offset> toPoints(List<int>? samples) {
-    List<Offset> points = [];
-    samples ??= List<int>.filled(size!.width.toInt(), (0.5).toInt());
-    double pixelsPerSample = size!.width / samples.length;
-    for (int i = 0; i < samples.length; i++) {
-      var point = Offset(
-          i * pixelsPerSample, 0.5 * size!.height * math.pow((samples[i] - localMin!) / (localMax! - localMin!), 5));
-      points.add(point);
-    }
-    return points;
-  }
-
-  double project(int val, int max, double height) {
-    double waveHeight = (max == 0) ? val.toDouble() : (val / max) * 0.5 * height;
-    return waveHeight + 0.5 * height;
-  }
-}
-
-class Statistics extends StatelessWidget {
-  final bool isRecording;
-  final DateTime? startTime;
-
-  final String url = "https://github.com/anarchuser/mic_stream";
-
-  const Statistics(
-    this.isRecording, {
-    this.startTime,
-    super.key,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      children: <Widget>[
-        const ListTile(leading: Icon(Icons.title), title: Text("Microphone Streaming Example App")),
-        ListTile(
-          leading: const Icon(Icons.keyboard_voice),
-          title: Text((isRecording ? "Recording" : "Not recording")),
-        ),
-        ListTile(
-          leading: const Icon(Icons.access_time),
-          title: Text((isRecording ? DateTime.now().difference(startTime!).toString() : "Not recording")),
-        ),
-      ],
-    );
-  }
-}
-
-Iterable<T> eachWithIndex<E, T>(Iterable<T> items, E Function(int index, T item) f) {
-  var index = 0;
-
-  for (final item in items) {
-    f(index, item);
-    index = index + 1;
-  }
-
-  return items;
 }
