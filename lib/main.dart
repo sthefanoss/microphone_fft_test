@@ -83,7 +83,7 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
       audioSource: AudioSource.DEFAULT,
       sampleRate: 44100,
       channelConfig: ChannelConfig.CHANNEL_IN_MONO,
-      audioFormat: AudioFormat.ENCODING_PCM_8BIT,
+      audioFormat: AudioFormat.ENCODING_PCM_16BIT,
     );
     // after invoking the method for the first time, though, these will be available;
     // It is not necessary to setup a listener first, the stream only needs to be returned first
@@ -245,7 +245,7 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
       return samples.toList().map((element) {
         return element - 127;
       }).toList();
-    bool first = true;
+    bool first = false;
     final visibleSamples = <int>[];
     int tmp = 0;
     for (int sample in samples) {
