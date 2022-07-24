@@ -105,25 +105,28 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
       final data = _calculateWaveSamples(f[0] as Uint8List);
       double maxTimeValue = f[1];
       double maxFFTValue = f[2];
+      final sampleRate = (f[3] as int).toDouble();
       int initialPowerOfTwo = (math.log(data.length) * math.log2e).ceil();
       int samplesFinalLength = math.pow(2, initialPowerOfTwo).toInt();
       final padding = List<double>.filled(samplesFinalLength - data.length, 0);
       final fftSamples = FFT().Transform([...data, ...padding]);
+      final deltaTime = 1E6 / (sampleRate * fftSamples.length);
       final timeSpots = List<chart.FlSpot>.generate(data.length, (n) {
         final y = data[n];
         maxTimeValue = math.max(maxTimeValue, y);
-        return chart.FlSpot(n.toDouble(), y);
+        return chart.FlSpot(n * deltaTime, y);
       });
+      final deltaFrequency = sampleRate / fftSamples.length;
       final frequencySpots = List<chart.FlSpot>.generate(
         1 + fftSamples.length ~/ 2,
         (n) {
           double y = fftSamples[n]!.abs();
           maxFFTValue = math.max(maxFFTValue, y);
-          return chart.FlSpot(n.toDouble(), y);
+          return chart.FlSpot(n * deltaFrequency, y);
         },
       );
       return [maxTimeValue, timeSpots, maxFFTValue, frequencySpots];
-    }, [f, _maxTimeValue, _maxFFTValue]);
+    }, [f, _maxTimeValue, _maxFFTValue, samplesPerSecond]);
     _mutex = false;
     _maxTimeValue = computedData[0];
     _spots.add(computedData[1]);
@@ -133,13 +136,12 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
 
   static List<double> _calculateWaveSamples(Uint8List samples) {
     final x = List<double>.filled(samples.length ~/ 2, 0);
-    const norm = 1 / (2 << 15);
     for (int i = 0; i < x.length; i++) {
       int msb = samples[i * 2 + 1];
       int lsb = samples[i * 2];
       if (msb > 128) msb -= 255;
       if (lsb > 128) lsb -= 255;
-      x[i] = (lsb + msb * 128) * norm;
+      x[i] = lsb + msb * 128;
     }
     return x;
   }
