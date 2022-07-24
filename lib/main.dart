@@ -1,8 +1,5 @@
 import 'dart:async';
-import 'dart:developer';
-import 'dart:io';
 import 'dart:typed_data';
-import 'dart:ui';
 import 'dart:math' as math;
 import 'package:fft/fft.dart';
 import 'package:flutter/material.dart';
@@ -29,9 +26,8 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
   Stream<Uint8List>? _stream;
   int page = 0;
   StreamSubscription<Uint8List>? _soundSubscription;
-  List<chart.FlSpot>? _spots;
-  List<chart.FlSpot>? _fftSpots;
-  List<chart.FlSpot>? _filteredSpots;
+  final _spots = StreamController<List<chart.FlSpot>>.broadcast();
+  final _fftSpots = StreamController<List<chart.FlSpot>>.broadcast();
   double _maxTimeValue = 1;
   double _maxFFTValue = 1;
   double _minTimeValue = 0;
@@ -102,142 +98,32 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
   }
 
   void _micListener(Uint8List f) {
-    // ByteData byteData = ByteData.sublistView(f);
-    //
-    // print({
-    //   'vetor': f.sublist(0, 2),
-    //   'big': byteData.getUint16(0, Endian.big),
-    //   'little': byteData.getUint16(0, Endian.little),
-    // });
-    //
-    // // ByteData byteData = ByteData.sublistView(f);
-    //
-    // final dataaa = List<int>.filled(f.length, 0);
-    //
-    // for (int i = 0; i < f.length ~/ 2; i++) {
-    //   dataaa[i] = byteData.getUint16(i * 2, Endian.little);
-    // }
-    // print(dataaa);
     final dataaa = _calculateWaveSamples(f);
-    // for (int i = 0; i < f.length ~/ 2; i++) {
-    //   dataaa.add(f[i]);
-    // }
-    // for (int i = 0; i < f.length ~/ 2; i++) {
-    //   dataaa[i] += f[i + f.length ~/ 2 - 1] << 255;
-    // }
-
-    // late List<int> dataaa;
-    //    // print(bytesPerSample);
-    //  if(bytesPerSample ==2 ) {
-    //    dataaa = f.buffer.asUint16List();
-    //  } else {
-    //    dataaa = f.toList();
-    //  }
-    // final dataaa = f;
-    // print(dataa.toSet().length);
-    // return;
-    //  print(data.length);
-    int initialPowerOfTwo = (math.log(dataaa.length) * math.log2e).ceil();
-    int samplesFinalLength = math.pow(2, initialPowerOfTwo - 1).toInt();
-    final offset = 0.0; //math.pow(2, 7.0).toDouble();
-    final dataa = dataaa.sublist(0, samplesFinalLength).map((e) => e - offset).toList();
-    // print(dataa.length);
-    // final window = List<double>.generate(
-    //     dataa.length,
-    //     (index) => math
-    //         .exp(-40 * math.pow((index - dataa.length / 2) / dataa.length, 4)));
-    // print(window);
-    // var buffer = data.buffer;
-    // var bytes = new ByteData.view(buffer);
-    // final datas = <double>[];
-    // for (int i = 0; i < data.length ~/ 2; i++) {
-    //   datas.add(bytes.getUint16(2 * i) - offset);
-    // }
-    //   bytes.getUint16(byteOffset);
-
-// print(boo.toSet().length);
-    // print(data.toSet().length);
-
-    // return;
-    // print(data.toSet());
-    // final _before = _now;
-    // _now = DateTime.now();
-    // print(data.length);
-
-    // final datas = List<int>.filled(data.length ~/ 2, 0);
-    // for (int i = 0; i < data.length; i += 2) {
-    //   datas[i ~/ 2] = data[i] * 256 + data[i + 1];
-    // }
-    // print(datas.toSet().length);
-    // return;
-    // print(datas);
-
-    // if (_before != null)
-    //   print('dt = ${_now.difference(_before).inMicroseconds}');
-    // print(data.length / _now.difference(_before).inMicroseconds);
+    final dataa = dataaa.map((e) => e - 0.0).toList();
     final foo = List<chart.FlSpot>.generate(
       dataa.length,
       (x) {
-        // final y = window[x] * dataa[x];
         final y = dataa[x];
         _maxTimeValue = math.max(y, _maxTimeValue);
         _minTimeValue = math.min(y, _minTimeValue);
         return chart.FlSpot(x.toDouble(), y);
       },
     );
-    if (false) {
-      // int initialPowerOfTwo = (math.log(data.length) * math.log2e).ceil();
-      // int samplesFinalLength = math.pow(2, initialPowerOfTwo).toInt();
-      // final padding =
-      //     List<double>.filled(samplesFinalLength - (data.length), 0);
-      // final fftSamples = FFT()
-      //     .Transform([...data.map((e) => e.toDouble()).toList(), ...padding]);
-      // final boo = List<chart.FlSpot>.generate(
-      //   fftSamples.length - 1,
-      //   (x) {
-      //     final y = fftSamples[x + 1].modulus.toDouble();
-      //     _maxFFTValue = math.max(y, _maxFFTValue);
-      //     return chart.FlSpot(x.toDouble(), y);
-      //   },
-      // );
-      // setState(() {
-      //   _spots = foo;
-      //   _fftSpots = boo;
-      // });
-    }
-    {
-      // int initialPowerOfTwo = (math.log(datas.length) * math.log2e).ceil();
-      // int samplesFinalLength = math.pow(2, initialPowerOfTwo - 1).toInt();
-      final fftSamples = FFT().Transform(dataa);
-      // final maxFreq = (fftSamples.length * 3660 ~/ 4000);
-      // final minFerq = (fftSamples.length * 60 ~/ 4000);
-      // final fftFilter = List<chart.FlSpot>.generate(
-      //   fftSamples.length,
-      //   (x) {
-      //     double y;
-      //     if (x > minFerq && x < maxFreq) {
-      //       y = 1;
-      //     } else {
-      //       y = 0;
-      //     }
-      //     // _maxFFTValue = math.max(y, _maxFFTValue);
-      //     return chart.FlSpot(x.toDouble(), y);
-      //   },
-      // );
-      // print(fftFilter);
-      final boo = List<chart.FlSpot>.generate(
-        fftSamples.length ~/ 2,
-        (x) {
-          double y = fftSamples[x]!.abs();
-          _maxFFTValue = math.max(y, _maxFFTValue);
-          return chart.FlSpot(x.toDouble(), y);
-        },
-      );
-      setState(() {
-        _spots = foo;
-        _fftSpots = boo;
-      });
-    }
+    _spots.add(foo);
+
+    int initialPowerOfTwo = (math.log(dataaa.length) * math.log2e).ceil();
+    int samplesFinalLength = math.pow(2, initialPowerOfTwo).toInt();
+    final padding = List<double>.filled(samplesFinalLength - dataaa.length, 0);
+    final fftSamples = FFT().Transform([...dataa, ...padding]);
+    final boo = List<chart.FlSpot>.generate(
+      1 + fftSamples.length ~/ 2,
+      (x) {
+        double y = fftSamples[x]!.abs();
+        _maxFFTValue = math.max(y, _maxFFTValue);
+        return chart.FlSpot(x.toDouble(), y);
+      },
+    );
+    _fftSpots.add(boo);
   }
 
   List<int> _calculateWaveSamples(Uint8List samples) {
@@ -313,32 +199,48 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
             onTap: (v) => setState(() => page = v),
           ),
           body: [
-            _spots != null
-                ? chart.LineChart(
-                    chart.LineChartData(
-                      lineBarsData: [
-                        chart.LineChartBarData(
-                          spots: _spots,
-                        ),
-                      ],
-                      maxY: _maxTimeValue,
-                      minY: _minTimeValue,
-                    ),
-                  )
-                : Container(),
-            _fftSpots != null
-                ? chart.LineChart(
-                    chart.LineChartData(
-                      lineBarsData: [
-                        chart.LineChartBarData(
-                          spots: _fftSpots,
-                        ),
-                      ],
-                      minY: 0,
-                      maxY: _maxFFTValue,
-                    ),
-                  )
-                : Container(),
+            StreamBuilder<List<chart.FlSpot>>(
+              stream: _spots.stream,
+              builder: (context, snapshot) {
+                if (snapshot.data == null) {
+                  return Container();
+                }
+
+                return chart.LineChart(
+                  chart.LineChartData(
+                    lineBarsData: [
+                      chart.LineChartBarData(
+                        spots: snapshot.data!,
+                      ),
+                    ],
+                    maxY: _maxTimeValue,
+                    minY: _minTimeValue,
+                  ),
+                );
+              },
+              key: const ValueKey(0),
+            ),
+            StreamBuilder<List<chart.FlSpot>>(
+              stream: _fftSpots.stream,
+              builder: (context, snapshot) {
+                if (snapshot.data == null) {
+                  return Container();
+                }
+
+                return chart.LineChart(
+                  chart.LineChartData(
+                    lineBarsData: [
+                      chart.LineChartBarData(
+                        spots: snapshot.data!,
+                      ),
+                    ],
+                    maxY: _maxFFTValue,
+                    minY: 0,
+                  ),
+                );
+              },
+              key: const ValueKey(1),
+            )
           ][page],
         ));
   }
