@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart' as chart;
 import 'package:mic_stream/mic_stream.dart';
+import 'dart:developer';
 
 enum Command {
   start,
@@ -13,13 +14,13 @@ enum Command {
   change,
 }
 
-const AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT;
-
-void main() => runApp(MicStreamExampleApp());
+void main() => runApp(const MicStreamExampleApp());
 
 class MicStreamExampleApp extends StatefulWidget {
+  const MicStreamExampleApp({Key? key}) : super(key: key);
+
   @override
-  _MicStreamExampleAppState createState() => _MicStreamExampleAppState();
+  State<MicStreamExampleApp> createState() => _MicStreamExampleAppState();
 }
 
 class _MicStreamExampleAppState extends State<MicStreamExampleApp>
@@ -36,7 +37,7 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
   bool isActive = false;
   @override
   void initState() {
-    print("Init application");
+    log("Init application");
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     setState(() {
@@ -65,12 +66,12 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
   late int samplesPerSecond;
 
   Future<bool> _startListening() async {
-    print("START LISTENING");
+    log("START LISTENING");
     if (isRecording) return false;
     // if this is the first time invoking the microphone()
     // method to get the stream, we don't yet have access
     // to the sampleRate and bitDepth properties
-    print("wait for stream");
+    log("wait for stream");
 
     // Default option. Set to false to disable request permission dialogue
     MicStream.shouldRequestPermission(true);
@@ -83,8 +84,7 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
     );
     // after invoking the method for the first time, though, these will be available;
     // It is not necessary to setup a listener first, the stream only needs to be returned first
-    print(
-        "Start Listening to the microphone, sample rate is ${await MicStream.sampleRate}, bit depth is ${await MicStream.bitDepth}, bufferSize: ${await MicStream.bufferSize}");
+    log("Start Listening to the microphone, sample rate is ${await MicStream.sampleRate}, bit depth is ${await MicStream.bitDepth}, bufferSize: ${await MicStream.bufferSize}");
     bytesPerSample = (await MicStream.bitDepth)! ~/ 8;
     samplesPerSecond = (await MicStream.sampleRate)!.toInt();
     _maxFFTValue = 1;
@@ -148,7 +148,7 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
 
   bool _stopListening() {
     if (!isRecording) return false;
-    print("Stop Listening to the microphone");
+    log("Stop Listening to the microphone");
     _soundSubscription?.cancel();
 
     setState(() {
@@ -164,7 +164,7 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
   }
 
   Color _getBgColor() => (isRecording) ? Colors.red : Colors.cyan;
-  Icon _getIcon() => (isRecording) ? Icon(Icons.stop) : Icon(Icons.keyboard_voice);
+  Icon _getIcon() => (isRecording) ? const Icon(Icons.stop) : const Icon(Icons.keyboard_voice);
 
   @override
   Widget build(BuildContext context) {
@@ -183,7 +183,7 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
             ],
           ),
           bottomNavigationBar: BottomNavigationBar(
-            items: [
+            items: const [
               BottomNavigationBarItem(
                 icon: Icon(Icons.broken_image),
                 label: "Sound Wave",
@@ -251,14 +251,14 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       isActive = true;
-      print("Resume app");
+      log("Resume app");
 
       _controlMicStream(command: memRecordingState ? Command.start : Command.stop);
     } else if (isActive) {
       memRecordingState = isRecording;
       _controlMicStream(command: Command.stop);
 
-      print("Pause app");
+      log("Pause app");
       isActive = false;
     }
   }
