@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:math' as math;
 import 'package:fft/fft.dart';
+import 'package:complex/complex.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart' as chart;
 import 'package:mic_stream/mic_stream.dart';
@@ -97,25 +99,29 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
     return true;
   }
 
-  void _micListener(Uint8List f) {
-    final data = _calculateWaveSamples(f);
-    final timeSpots = List<chart.FlSpot>.generate(data.length, (x) => chart.FlSpot(x.toDouble(), data[x]));
-    _spots.add(timeSpots);
-
-    int initialPowerOfTwo = (math.log(data.length) * math.log2e).ceil();
-    int samplesFinalLength = math.pow(2, initialPowerOfTwo).toInt();
-    final padding = List<double>.filled(samplesFinalLength - data.length, 0);
-    final fftSamples = FFT().Transform([...data, ...padding]);
-
-    final frequencySpots = List<chart.FlSpot>.generate(
-      1 + fftSamples.length ~/ 2,
-      (x) {
-        double y = fftSamples[x]!.abs();
-        _maxFFTValue = math.max(y, _maxFFTValue);
-        return chart.FlSpot(x.toDouble(), y);
-      },
-    );
-    _fftSpots.add(frequencySpots);
+  bool _mutex = false;
+  void _micListener(Uint8List f) async {
+    if (_mutex) return;
+    _mutex = true;
+    final computedData = await compute<Uint8List, List<List<chart.FlSpot>>>((Uint8List f) {
+      final data = _calculateWaveSamples(f);
+      int initialPowerOfTwo = (math.log(data.length) * math.log2e).ceil();
+      int samplesFinalLength = math.pow(2, initialPowerOfTwo).toInt();
+      final padding = List<double>.filled(samplesFinalLength - data.length, 0);
+      final fftSamples = FFT().Transform([...data, ...padding]);
+      final timeSpots = List<chart.FlSpot>.generate(data.length, (x) => chart.FlSpot(x.toDouble(), data[x]));
+      final frequencySpots = List<chart.FlSpot>.generate(
+        1 + fftSamples.length ~/ 2,
+        (x) {
+          double y = fftSamples[x]!.abs();
+          return chart.FlSpot(x.toDouble(), y);
+        },
+      );
+      return [timeSpots, frequencySpots];
+    }, f);
+    _mutex = false;
+    _spots.add(computedData[0]);
+    _fftSpots.add(computedData[1]);
   }
 
   static List<double> _calculateWaveSamples(Uint8List samples) {
@@ -217,8 +223,8 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
                         spots: snapshot.data!,
                       ),
                     ],
-                    maxY: _maxFFTValue,
-                    minY: 0,
+                    // maxY: _maxFFTValue,
+                    // minY: 0,
                   ),
                 );
               },
