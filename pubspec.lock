@@ -70,7 +70,7 @@ packages:
       path: "."
       ref: HEAD
       resolved-ref: "46a45992acbaf37473068512a80d1db805223709"
-      url: "https://github.com/Yi-Jiahe/dart_lang_fft"
+      url: "https://github.com/sthefanoss/dart_lang_fft"
     source: git
     version: "0.3.0"
   fl_chart:

@@ -13,7 +13,7 @@ dependencies:
   fl_chart:
   fft:
     git:
-      url: https://github.com/Yi-Jiahe/dart_lang_fft
+      url: https://github.com/sthefanoss/dart_lang_fft
 
 dev_dependencies:
   flutter_test:
