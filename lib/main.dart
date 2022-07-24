@@ -187,8 +187,8 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
                 label: "Sound Wave",
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.broken_image),
-                label: "Intensity Wave",
+                icon: Icon(Icons.bar_chart),
+                label: "Sound Frequencies",
               ),
             ],
             backgroundColor: Colors.black26,
