@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:math' as math;
 import 'package:fft/fft.dart';
-import 'package:complex/complex.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart' as chart;
@@ -32,7 +31,6 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
   final _fftSpots = StreamController<List<chart.FlSpot>>.broadcast();
   double _maxTimeValue = 1;
   double _maxFFTValue = 1;
-  double _minTimeValue = 0;
   bool memRecordingState = false;
   bool isRecording = false;
   bool isActive = false;
@@ -103,25 +101,34 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
   void _micListener(Uint8List f) async {
     if (_mutex) return;
     _mutex = true;
-    final computedData = await compute<Uint8List, List<List<chart.FlSpot>>>((Uint8List f) {
-      final data = _calculateWaveSamples(f);
+    final computedData = await compute<List, List>((List f) {
+      final data = _calculateWaveSamples(f[0] as Uint8List);
+      double maxTimeValue = f[1];
+      double maxFFTValue = f[2];
       int initialPowerOfTwo = (math.log(data.length) * math.log2e).ceil();
       int samplesFinalLength = math.pow(2, initialPowerOfTwo).toInt();
       final padding = List<double>.filled(samplesFinalLength - data.length, 0);
       final fftSamples = FFT().Transform([...data, ...padding]);
-      final timeSpots = List<chart.FlSpot>.generate(data.length, (x) => chart.FlSpot(x.toDouble(), data[x]));
+      final timeSpots = List<chart.FlSpot>.generate(data.length, (n) {
+        final y = data[n];
+        maxTimeValue = math.max(maxTimeValue, y);
+        return chart.FlSpot(n.toDouble(), y);
+      });
       final frequencySpots = List<chart.FlSpot>.generate(
         1 + fftSamples.length ~/ 2,
-        (x) {
-          double y = fftSamples[x]!.abs();
-          return chart.FlSpot(x.toDouble(), y);
+        (n) {
+          double y = fftSamples[n]!.abs();
+          maxFFTValue = math.max(maxFFTValue, y);
+          return chart.FlSpot(n.toDouble(), y);
         },
       );
-      return [timeSpots, frequencySpots];
-    }, f);
+      return [maxTimeValue, timeSpots, maxFFTValue, frequencySpots];
+    }, [f, _maxTimeValue, _maxFFTValue]);
     _mutex = false;
-    _spots.add(computedData[0]);
-    _fftSpots.add(computedData[1]);
+    _maxTimeValue = computedData[0];
+    _spots.add(computedData[1]);
+    _maxFFTValue = computedData[2];
+    _fftSpots.add(computedData[3]);
   }
 
   static List<double> _calculateWaveSamples(Uint8List samples) {
@@ -200,10 +207,11 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
                     lineBarsData: [
                       chart.LineChartBarData(
                         spots: snapshot.data!,
+                        dotData: chart.FlDotData(show: false),
                       ),
                     ],
-                    maxY: 1,
-                    minY: -1,
+                    maxY: _maxTimeValue,
+                    minY: -_maxTimeValue,
                   ),
                 );
               },
@@ -221,10 +229,11 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
                     lineBarsData: [
                       chart.LineChartBarData(
                         spots: snapshot.data!,
+                        dotData: chart.FlDotData(show: false),
                       ),
                     ],
-                    // maxY: _maxFFTValue,
-                    // minY: 0,
+                    maxY: _maxFFTValue,
+                    minY: 0,
                   ),
                 );
               },
