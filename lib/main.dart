@@ -173,12 +173,14 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
         home: Scaffold(
           appBar: AppBar(
             title: const Text('Plugin: mic_stream :: Debug'),
-          ),
-          floatingActionButton: FloatingActionButton(
-            onPressed: _controlMicStream,
-            child: _getIcon(),
-            backgroundColor: _getBgColor(),
-            tooltip: (isRecording) ? "Stop recording" : "Start recording",
+            actions: [
+              IconButton(
+                onPressed: _controlMicStream,
+                icon: _getIcon(),
+                color: _getBgColor(),
+                tooltip: (isRecording) ? "Stop recording" : "Start recording",
+              )
+            ],
           ),
           bottomNavigationBar: BottomNavigationBar(
             items: [
