@@ -98,24 +98,16 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
   }
 
   void _micListener(Uint8List f) {
-    final dataaa = _calculateWaveSamples(f);
-    final dataa = dataaa.map((e) => e - 0.0).toList();
-    final foo = List<chart.FlSpot>.generate(
-      dataa.length,
-      (x) {
-        final y = dataa[x];
-        _maxTimeValue = math.max(y, _maxTimeValue);
-        _minTimeValue = math.min(y, _minTimeValue);
-        return chart.FlSpot(x.toDouble(), y);
-      },
-    );
-    _spots.add(foo);
+    final data = _calculateWaveSamples(f);
+    final timeSpots = List<chart.FlSpot>.generate(data.length, (x) => chart.FlSpot(x.toDouble(), data[x]));
+    _spots.add(timeSpots);
 
-    int initialPowerOfTwo = (math.log(dataaa.length) * math.log2e).ceil();
+    int initialPowerOfTwo = (math.log(data.length) * math.log2e).ceil();
     int samplesFinalLength = math.pow(2, initialPowerOfTwo).toInt();
-    final padding = List<double>.filled(samplesFinalLength - dataaa.length, 0);
-    final fftSamples = FFT().Transform([...dataa, ...padding]);
-    final boo = List<chart.FlSpot>.generate(
+    final padding = List<double>.filled(samplesFinalLength - data.length, 0);
+    final fftSamples = FFT().Transform([...data, ...padding]);
+
+    final frequencySpots = List<chart.FlSpot>.generate(
       1 + fftSamples.length ~/ 2,
       (x) {
         double y = fftSamples[x]!.abs();
@@ -123,29 +115,20 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
         return chart.FlSpot(x.toDouble(), y);
       },
     );
-    _fftSpots.add(boo);
+    _fftSpots.add(frequencySpots);
   }
 
-  List<int> _calculateWaveSamples(Uint8List samples) {
-    if (bytesPerSample == 1)
-      return samples.toList().map((element) {
-        return element - 127;
-      }).toList();
-    bool first = false;
-    final visibleSamples = <int>[];
-    int tmp = 0;
-    for (int sample in samples) {
-      if (sample > 128) sample -= 255;
-      if (first) {
-        tmp = sample * 128;
-      } else {
-        tmp += sample;
-        visibleSamples.add(tmp);
-        tmp = 0;
-      }
-      first = !first;
+  static List<double> _calculateWaveSamples(Uint8List samples) {
+    final x = List<double>.filled(samples.length ~/ 2, 0);
+    const norm = 1 / (2 << 15);
+    for (int i = 0; i < x.length; i++) {
+      int msb = samples[i * 2 + 1];
+      int lsb = samples[i * 2];
+      if (msb > 128) msb -= 255;
+      if (lsb > 128) lsb -= 255;
+      x[i] = (lsb + msb * 128) * norm;
     }
-    return visibleSamples;
+    return x;
   }
 
   bool _stopListening() {
@@ -213,8 +196,8 @@ class _MicStreamExampleAppState extends State<MicStreamExampleApp>
                         spots: snapshot.data!,
                       ),
                     ],
-                    maxY: _maxTimeValue,
-                    minY: _minTimeValue,
+                    maxY: 1,
+                    minY: -1,
                   ),
                 );
               },
